@@ -4,6 +4,10 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+interface ERC20Interface {
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function transfer(address to, uint256 value) external returns (bool);
+}
 
 /// @title GooJob, an EVM based freelancer<->contractor platform
 /// @author prunkton.eth
@@ -16,6 +20,39 @@ contract Goojob is Ownable {
 
     uint256 public amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
     bool public state_started;  // if true, all parties agree on conditions
+
+    //address public wETH = 0xf1f0df2841599b21abc4725fbe17fa3b945bad57;
+
+    //###
+    ERC20Interface public token;
+    mapping(address => uint256) public frozenBalances;
+    bool public fundsAreFrozen = true; // default state
+
+    constructor(address _tokenAddress) {
+        token = ERC20Interface(_tokenAddress);
+    }
+
+
+    function toggleFreeze() external onlyOwner {
+        fundsAreFrozen = !fundsAreFrozen;
+    }
+
+    function freezeTokens() external {
+        require(!fundsAreFrozen, "Funds are currently frozen");
+        require(token.transferFrom(contractor, address(this), amount), "Transfer failed");
+        frozenBalances[contractor] += amount;
+    }
+
+    function unlockTokensForContractor() private {
+        require(!fundsAreFrozen, "Funds are currently frozen");
+        require(frozenBalances[contractor] >= amount, "Insufficient frozen balance");
+        
+        frozenBalances[contractor] -= amount;
+        require(token.transfer(contractor, amount), "Transfer failed");
+    }
+
+
+    //#####
 
     // Set contractor
     // is this redundant with constructor?
@@ -34,6 +71,10 @@ contract Goojob is Ownable {
         freelancer = _freelancer;
     }
 
+    function transferToFreelancer() private {
+        require(token.transferFrom(contractor,freelancer, amount), "Transfer failed");
+    }
+
     // the contractor is setting up the job
     // the contractor has to define the amount that should get locked up
     function setupJob(uint256 _amount) public isContractorAddressValid isFreelancerAddressValid onlyOwner{
@@ -45,10 +86,12 @@ contract Goojob is Ownable {
     // it is not possible to activeley freeze or deposit funds from someones addres
     // so we need to wait for the contractor to deposit the fund on the SC
     function acceptJob(bool accept) public onlyFreelancerAllowed {
+        unlockTokensForContractor(); //we need to unlock it in both cases, to withdraw it or to give it back
         if(accept) {
-            require(address(this).balance > amount, "Sent value must be greater than 0");
+            transferToFreelancer();
+            //require(address(this).balance > amount, "Sent value must be greater than 0");
             state_started = true;
-        }else{
+        } else{
             state_started = false; // we are not able to track this event? 
         }
     }

@@ -150,6 +150,7 @@ contract("Goojob", accounts => {
         assert.equal(contractorFund, contractorFundAfter + amount, "The state of the job changed to started");
     });
 
+    
 
 });
 
