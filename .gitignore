@@ -1,0 +1,34 @@
+# Dependency directory
+node_modules/
+
+# Build directory
+build/
+
+# Environment files
+.env
+
+# Configuration files (Truffle/Hardhat)
+truffle-config.js
+hardhat.config.js
+
+# Network artifacts
+.networks.json
+
+# Cache files (Hardhat)
+cache/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# IDE files
+*.swp
+*.swo
+*.swn
+*.idea/
+*.vscode/
