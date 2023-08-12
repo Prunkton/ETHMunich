@@ -1,4 +1,4 @@
-const AmountContract= artifacts.require ("AmountContract.sol");
+const Goojob= artifacts.require ("Goojob.sol");
 module.exports = function(deployer) {
-    deployer.deploy(AmountContract);
+    deployer.deploy(Goojob);
 }

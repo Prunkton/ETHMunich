@@ -14,9 +14,9 @@ contract Goojob is Ownable {
     address payable public contractor;
     address payable public freelancer;
 
-    uint256 amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
-    bool state_started;  // if true, all parties agree on conditions
-    address delegate; // person delegated to
+    uint256 public amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
+    bool public state_started;  // if true, all parties agree on conditions
+
 
 
     //constructor() {
@@ -30,8 +30,12 @@ contract Goojob is Ownable {
         contractor = _contractor;
     }
 
+    function getState_started() public view returns(bool) {
+        return state_started;
+    }
+
     // The Contractor has to accept the freelancer
-    function giveFreelancerAccess(address payable _freelancer) public isContractorAddressValid onlyOwner {
+    function setFreelancerAccess(address payable _freelancer) public isContractorAddressValid onlyOwner {
         require(_freelancer != address(0), "Freelancer address should not be the zero address");
         freelancer = _freelancer;
     }
@@ -49,6 +53,8 @@ contract Goojob is Ownable {
         state_started = accept;
         if(accept) {
             startJob();
+        }else{
+            // do anything?
         }
     }
 
@@ -68,24 +74,23 @@ contract Goojob is Ownable {
         _;
     }
 
+    mapping(address => LockedBalance) public lockedBalances;
+
+    function getLockedAmount() public returns(uint256) {
+        return lockedBalances[contractor].amount;
+    }
+
     function startJob() private {
         // lockup the amount on the contractors address
-        lockFunds();
+        require(lockedBalances[contractor].locked == false, "Funds already locked for this user");
+        require(contractor.balance > amount, "Sent value must be greater than 0");
+
+        lockedBalances[contractor] = LockedBalance(amount, true);
     }
 
     struct LockedBalance {
         uint256 amount; // potential code smell since already have a global amount?
         bool locked;
-    }
-    
-    mapping(address => LockedBalance) public lockedBalances;
-
-    // Lock funds for an address
-    function lockFunds() public payable {
-        require(lockedBalances[msg.sender].locked == false, "Funds already locked for this user");
-        require(msg.value > amount, "Sent value must be greater than 0");
-
-        lockedBalances[msg.sender] = LockedBalance(msg.value, true);
     }
 
     // Unlock and withdraw funds for the msg.sender's address
