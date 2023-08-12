@@ -7,40 +7,33 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 interface ERC20Interface {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
     function transfer(address to, uint256 value) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
 }
 
-/// @title GooJob, an EVM based freelancer<->contractor platform
+/// @title Goojob, an EVM based freelancer<->contractor platform
 /// @author prunkton.eth
 /// @notice This is a ETHMunich 2023 hackathon project
-/// @dev this contract is perfectly fine ;)
+/// @dev the basic idea is to leverage ERC20 to freeze some balance of the contractor to distribute it to the freelancer after a successfull partnership
 /// @custom:experimental My very first smart contract project
 contract Goojob is Ownable {
     address payable public contractor;
     address payable public freelancer;
 
-    uint256 public amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
-    bool public state_started;  // if true, all parties agree on conditions
+    uint256 private amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
+    bool private state_started;  // if true, all parties agree on conditions
 
-    //address public wETH = 0xf1f0df2841599b21abc4725fbe17fa3b945bad57;
-
-    //###
     ERC20Interface public token;
     mapping(address => uint256) public frozenBalances;
-    bool public fundsAreFrozen = true; // default state
+    bool private fundsAreFrozen = false; // default state
 
     constructor(address _tokenAddress) {
         token = ERC20Interface(_tokenAddress);
     }
 
-
-    function toggleFreeze() external onlyOwner {
-        fundsAreFrozen = !fundsAreFrozen;
-    }
-
-    function freezeTokens() external {
+    function freezeTokens() private {
         require(!fundsAreFrozen, "Funds are currently frozen");
-        require(token.transferFrom(contractor, address(this), amount), "Transfer failed");
         frozenBalances[contractor] += amount;
+        fundsAreFrozen = true;
     }
 
     function unlockTokensForContractor() private {
@@ -49,16 +42,40 @@ contract Goojob is Ownable {
         
         frozenBalances[contractor] -= amount;
         require(token.transfer(contractor, amount), "Transfer failed");
+        fundsAreFrozen = false;
     }
 
+    function areTokensFrozen() public view returns(bool) {
+        return fundsAreFrozen; //TODO unify funds/token/balance/amount
+    }
 
-    //#####
+    // Function to check if an address has at least a certain amount of tokens
+    function hasMinimumTokens(address addr, uint256 _amount) public view returns (bool) {
+        return token.balanceOf(addr) >= _amount;
+    }
+
+    // Example usage: Check if an address has at least 100 tokens
+    function hasAtLeast100Tokens(address addr) public view returns (bool) {
+        return hasMinimumTokens(addr, 100);
+    }
+
+    function getContractorTokenAmount() public view returns (uint256) {
+        return token.balanceOf(contractor);
+    }
+
+    function getFreelancerTokenAmount() public view returns (uint256) {
+        return token.balanceOf(freelancer);
+    }
 
     // Set contractor
     // is this redundant with constructor?
     function setContractor(address payable _contractor) public onlyOwner {
         require(_contractor != address(0), "Contractor address should not be the zero address");
         contractor = _contractor;
+    }
+
+    function getContractor() public view returns(address) {
+        return contractor;
     }
 
     function getState_started() public view returns(bool) {
@@ -81,17 +98,20 @@ contract Goojob is Ownable {
         amount = _amount; //we don't check if the amount is available since we will lock it up at a later point
     }
 
+    function getAmount() public view returns(uint256) {
+        return amount;
+    }
+
     // Restricted function
     // only accessable by the freelancer
     // it is not possible to activeley freeze or deposit funds from someones addres
     // so we need to wait for the contractor to deposit the fund on the SC
     function acceptJob(bool accept) public onlyFreelancerAllowed {
-        unlockTokensForContractor(); //we need to unlock it in both cases, to withdraw it or to give it back
         if(accept) {
-            transferToFreelancer();
-            //require(address(this).balance > amount, "Sent value must be greater than 0");
+            freezeTokens();
             state_started = true;
         } else{
+            unlockTokensForContractor();
             state_started = false; // we are not able to track this event? 
         }
     }
