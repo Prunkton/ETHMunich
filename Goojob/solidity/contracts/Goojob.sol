@@ -17,12 +17,6 @@ contract Goojob is Ownable {
     uint256 public amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
     bool public state_started;  // if true, all parties agree on conditions
 
-
-
-    //constructor() {
-    //    contractor = msg.sender;
-    //}
-
     // Set contractor
     // is this redundant with constructor?
     function setContractor(address payable _contractor) public onlyOwner {
@@ -46,15 +40,16 @@ contract Goojob is Ownable {
         amount = _amount; //we don't check if the amount is available since we will lock it up at a later point
     }
 
-
     // Restricted function
     // only accessable by the freelancer
+    // it is not possible to activeley freeze or deposit funds from someones addres
+    // so we need to wait for the contractor to deposit the fund on the SC
     function acceptJob(bool accept) public onlyFreelancerAllowed {
-        state_started = accept;
         if(accept) {
-            startJob();
+            require(address(this).balance > amount, "Sent value must be greater than 0");
+            state_started = true;
         }else{
-            // do anything?
+            state_started = false; // we are not able to track this event? 
         }
     }
 
@@ -74,67 +69,16 @@ contract Goojob is Ownable {
         _;
     }
 
-    mapping(address => LockedBalance) public lockedBalances;
-
-    function getLockedAmount() public returns(uint256) {
-        return lockedBalances[contractor].amount;
-    }
-
-    function startJob() private {
-        // lockup the amount on the contractors address
-        require(lockedBalances[contractor].locked == false, "Funds already locked for this user");
-        require(contractor.balance > amount, "Sent value must be greater than 0");
-
-        lockedBalances[contractor] = LockedBalance(amount, true);
-    }
-
-    struct LockedBalance {
-        uint256 amount; // potential code smell since already have a global amount?
-        bool locked;
-    }
-
-    // Unlock and withdraw funds for the msg.sender's address
-    function unlockAndWithdraw() public {
-        LockedBalance storage userBalance = lockedBalances[msg.sender];
-        
-        require(userBalance.locked == true, "No funds locked for user");
-        require(userBalance.amount > 0, "Insufficient locked funds");
-        
-        userBalance.amount = 0;
-        userBalance.locked = false;
-        
-        payable(freelancer).transfer(amount);
-    }
-
-    // Fallback function to allow the contract to receive funds
-    // Like unlockAndWithdraw() without the checks and the contractor as the recepient
-    receive() external payable {
-        LockedBalance storage userBalance = lockedBalances[msg.sender];
-        
-        require(userBalance.locked == true, "No funds locked for user");
-        require(userBalance.amount > 0, "Insufficient locked funds");
-        
-        userBalance.amount = 0;
-        userBalance.locked = false;
-        
-        payable(freelancer).transfer(amount);
-        //emit Received(freelancer, amount); //make event first
-    }
-
     function closeJob(bool conditionsMet) public payable onlyOwner {
+        require(state_started == true, "No funds locked for user");
+        require(address(this).balance > amount, "Insufficient locked funds");
         if(conditionsMet){
-            unlockAndWithdraw();
-        }else{
-            // dublicate of 'received()' from above
-            LockedBalance storage userBalance = lockedBalances[msg.sender];
-            
-            require(userBalance.locked == true, "No funds locked for user");
-            require(userBalance.amount > 0, "Insufficient locked funds");
-            
-            userBalance.amount = 0;
-            userBalance.locked = false;
-            
             payable(freelancer).transfer(amount);
+        }else{
+            payable(contractor).transfer(amount);
         }
+        amount = 0;
+        state_started = false;
     }
 }
+
