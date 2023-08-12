@@ -13,50 +13,45 @@ interface ERC20Interface {
 /// @title Goojob, an EVM based freelancer<->contractor platform
 /// @author prunkton.eth
 /// @notice This is a ETHMunich 2023 hackathon project
-/// @dev the basic idea is to leverage ERC20 to freeze some balance of the contractor to distribute it to the freelancer after a successfull partnership
+/// @dev the basic idea is to leverage ERC20 (wETH) to freeze some balance of the contractor to distribute it to the freelancer after a successfull partnership
 /// @custom:experimental My very first smart contract project
 contract Goojob is Ownable {
     address payable public contractor;
     address payable public freelancer;
 
     uint256 private amount; // the allowance the SC will freeze up from the contractor until the working contract is resolved
-    bool private state_started;  // if true, all parties agree on conditions
+    bool private isWorkPhase;  // if true, all agreed on the contract and the freelancer is working
 
     ERC20Interface public token;
-    mapping(address => uint256) public frozenBalances;
+    mapping(address => uint256) public frozenFund;
     bool private fundsAreFrozen = false; // default state
 
     constructor(address _tokenAddress) {
         token = ERC20Interface(_tokenAddress);
     }
 
-    function freezeTokens() private {
+    function freezeFund() private {
         require(!fundsAreFrozen, "Funds are currently frozen");
-        frozenBalances[contractor] += amount;
+        frozenFund[contractor] += amount;
         fundsAreFrozen = true;
     }
 
-    function unlockTokensForContractor() private {
+    function unlockFundForContractor() private {
         require(!fundsAreFrozen, "Funds are currently frozen");
-        require(frozenBalances[contractor] >= amount, "Insufficient frozen balance");
+        require(frozenFund[contractor] >= amount, "Insufficient frozen fund");
         
-        frozenBalances[contractor] -= amount;
+        frozenFund[contractor] -= amount;
         require(token.transfer(contractor, amount), "Transfer failed");
         fundsAreFrozen = false;
     }
 
-    function areTokensFrozen() public view returns(bool) {
+    function isFundFrozen() public view returns(bool) {
         return fundsAreFrozen; //TODO unify funds/token/balance/amount
     }
 
     // Function to check if an address has at least a certain amount of tokens
     function hasMinimumTokens(address addr, uint256 _amount) public view returns (bool) {
         return token.balanceOf(addr) >= _amount;
-    }
-
-    // Example usage: Check if an address has at least 100 tokens
-    function hasAtLeast100Tokens(address addr) public view returns (bool) {
-        return hasMinimumTokens(addr, 100);
     }
 
     function getContractorTokenAmount() public view returns (uint256) {
@@ -78,8 +73,8 @@ contract Goojob is Ownable {
         return contractor;
     }
 
-    function getState_started() public view returns(bool) {
-        return state_started;
+    function getWorkPhase() public view returns(bool) {
+        return isWorkPhase;
     }
 
     // The Contractor has to accept the freelancer
@@ -88,7 +83,7 @@ contract Goojob is Ownable {
         freelancer = _freelancer;
     }
 
-    function transferToFreelancer() private {
+    function transferFundToFreelancer() private {
         require(token.transferFrom(contractor,freelancer, amount), "Transfer failed");
     }
 
@@ -108,12 +103,11 @@ contract Goojob is Ownable {
     // so we need to wait for the contractor to deposit the fund on the SC
     function acceptJob(bool accept) public onlyFreelancerAllowed {
         if(accept) {
-            freezeTokens();
-            state_started = true;
+            freezeFund();
         } else{
-            unlockTokensForContractor();
-            state_started = false; // we are not able to track this event? 
+            unlockFundForContractor();
         }
+        isWorkPhase = accept;
     }
 
     // Modifier to restrict function access
@@ -133,7 +127,7 @@ contract Goojob is Ownable {
     }
 
     function closeJob(bool conditionsMet) public payable onlyOwner {
-        require(state_started == true, "No funds locked for user");
+        require(isWorkPhase, "No funds locked for user");
         require(address(this).balance > amount, "Insufficient locked funds");
         if(conditionsMet){
             payable(freelancer).transfer(amount);
@@ -141,7 +135,7 @@ contract Goojob is Ownable {
             payable(contractor).transfer(amount);
         }
         amount = 0;
-        state_started = false;
+        isWorkPhase = false;
     }
 }
 
