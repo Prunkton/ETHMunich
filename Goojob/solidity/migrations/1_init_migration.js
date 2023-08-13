@@ -1,4 +1,4 @@
-const SimpleToken = artifacts.require("wETH");
+const SimpleToken = artifacts.require("GJT");
 const MyContract = artifacts.require("Goojob");
 
 module.exports = async function(deployer, network, accounts) {

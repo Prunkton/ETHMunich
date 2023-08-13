@@ -22,10 +22,10 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 //we are creating a new token just for local testing purpose
-//on mainchain, the wETH token addess should be used directly from within the contract
+//on mainchain, the wETH token addess could get utilized hardcoded from within the contract
 //or we utilize stablecoins and 'hide' the blockchain backend entirely from the user
-contract wETH is ERC20 {
-    constructor(uint256 initialSupply) public ERC20("wETH", "wETH") {
+contract GJT is ERC20 {
+    constructor(uint256 initialSupply) public ERC20("GJT", "GooJob Token") {
         _mint(msg.sender, initialSupply);
     }
 }

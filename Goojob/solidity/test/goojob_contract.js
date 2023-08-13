@@ -136,7 +136,7 @@ contract("Goojob", accounts => {
         const isFundFrozen = await instance.isFundFrozen();
         assert.equal(isFundFrozen, true, "The token of the contractor are frozen");
 
-        const amountFundContactorBefore = await instance.getContractorTokenAmount();
+        const amountTokenContactorBefore = await instance.getContractorTokenAmount();
         const amountTokenFreelancerBefore = await instance.getFreelancerTokenAmount();
         await instance.transferToFreelancer();
         const amountTokenContactorAfter = await instance.getContractorTokenAmount();
